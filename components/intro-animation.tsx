@@ -233,7 +233,7 @@ export function IntroAnimation({ onComplete }: { onComplete: () => void }) {
           >
             <motion.div className="flex items-center gap-2 justify-center">
               <span className="text-sm font-mono text-muted-foreground tracking-[0.2em]">
-                INITIALIZING AI
+                INITIALIZING WORLD
               </span>
               <motion.span
                 className="flex gap-1"

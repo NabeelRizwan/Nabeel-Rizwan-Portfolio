@@ -24,13 +24,13 @@ Modern developer portfolio built using Next.js, React, TypeScript, and Tailwind 
 ```bash
 npm install
 npm run dev
-```bash
+```
 
 ## 🌐 Live Demo
 
-[View Portfolio]([https://your-vercel-link.vercel.app](https://nabeel-rizwan-portfolio.vercel.app/))
+[View Portfolio](https://nabeel-rizwan-portfolio.vercel.app/)
 
 ## 📬 Contact
 
 - GitHub: [NabeelRizwan](https://github.com/NabeelRizwan)
-- LinkedIn: [Your LinkedIn](www.linkedin.com/in/mohammed-nabeel-rizwan)
+- LinkedIn: [Mohammed Nabeel Rizwan](https://www.linkedin.com/in/mohammed-nabeel-rizwan/)

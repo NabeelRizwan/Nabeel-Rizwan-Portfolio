@@ -1,4 +1,3 @@
-````md id="2n7kfa"
 # 🚀 Nabeel Rizwan Portfolio
 
 🌐 **Live Demo:** [nabeel-rizwan-portfolio.vercel.app](https://nabeel-rizwan-portfolio.vercel.app/)
@@ -33,4 +32,3 @@ npm run dev
 
 - GitHub: [NabeelRizwan](https://github.com/NabeelRizwan)
 - LinkedIn: [Mohammed Nabeel Rizwan](https://www.linkedin.com/in/mohammed-nabeel-rizwan/)
-````

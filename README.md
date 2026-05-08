@@ -24,6 +24,7 @@ Modern developer portfolio built using Next.js, React, TypeScript, and Tailwind 
 ```bash
 npm install
 npm run dev
+```
 
 ## 🌐 Live Demo
 

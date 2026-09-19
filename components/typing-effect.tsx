@@ -20,20 +20,23 @@ const skills = [
   "Statistical Analysis",
 ]
 
-export function TypingEffect() {
+export function TypingEffect({ active = true }: { active?: boolean }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [displayText, setDisplayText] = useState("")
   const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
+    if (!active) return
+
     const currentSkill = skills[currentIndex]
+    const isHolding = !isDeleting && displayText === currentSkill
     
     const timeout = setTimeout(() => {
       if (!isDeleting) {
         if (displayText.length < currentSkill.length) {
           setDisplayText(currentSkill.slice(0, displayText.length + 1))
         } else {
-          setTimeout(() => setIsDeleting(true), 2000)
+          setIsDeleting(true)
         }
       } else {
         if (displayText.length > 0) {
@@ -43,10 +46,10 @@ export function TypingEffect() {
           setCurrentIndex((prev) => (prev + 1) % skills.length)
         }
       }
-    }, isDeleting ? 50 : 100)
+    }, isHolding ? 2000 : isDeleting ? 50 : 100)
 
     return () => clearTimeout(timeout)
-  }, [displayText, isDeleting, currentIndex])
+  }, [active, displayText, isDeleting, currentIndex])
 
   return (
     <span className="inline-flex items-center">
@@ -54,7 +57,7 @@ export function TypingEffect() {
         <motion.span
           key={displayText}
           className="text-gradient font-semibold"
-          initial={{ opacity: 0.8 }}
+          initial={active ? { opacity: 0.8 } : false}
           animate={{ opacity: 1 }}
         >
           {displayText}
@@ -62,8 +65,9 @@ export function TypingEffect() {
       </AnimatePresence>
       <motion.span
         className="ml-1 inline-block h-8 w-0.5 bg-primary"
-        animate={{ opacity: [1, 0] }}
-        transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+        initial={false}
+        animate={{ opacity: active ? [1, 0] : 1 }}
+        transition={active ? { duration: 0.5, repeat: Infinity, repeatType: "reverse" } : { duration: 0 }}
       />
     </span>
   )

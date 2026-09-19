@@ -2,10 +2,11 @@
 
 import { motion, useInView } from "framer-motion"
 import { useRef, useState } from "react"
-import { Send, Github, Linkedin, Mail, MapPin } from "lucide-react"
+import { Github, Linkedin, Mail, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { createContactDraft, PUBLIC_CONTACT_EMAIL } from "@/lib/contact"
 
 const socialLinks = [
   { name: "GitHub", icon: Github, href: "https://github.com/NabeelRizwan", username: "NabeelRizwan" },
@@ -23,10 +24,7 @@ export function ContactSection() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const subject = encodeURIComponent(`Portfolio contact from ${formState.name}`)
-    const body = encodeURIComponent(`${formState.message}\n\nFrom: ${formState.name} <${formState.email}>`)
-    window.location.href = `mailto:?subject=${subject}&body=${body}`
-    setFormState({ name: "", email: "", message: "" })
+    window.location.href = createContactDraft(formState)
   }
 
   return (
@@ -34,7 +32,7 @@ export function ContactSection() {
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/20 to-background pointer-events-none" />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           ref={ref}
           initial={{ opacity: 0, y: 50 }}
@@ -62,11 +60,11 @@ export function ContactSection() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
             {/* Contact form */}
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: -12 }}
               animate={isInView ? { opacity: 1, x: 0 } : {}}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} aria-describedby="contact-draft-help" className="space-y-6">
                 <div className="space-y-4">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium mb-2">
@@ -116,15 +114,18 @@ export function ContactSection() {
                   size="lg"
                   className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90"
                 >
-                  Send Message
-                  <Send className="ml-2 h-4 w-4" />
+                  Open email draft
+                  <Mail className="ml-2 h-4 w-4" />
                 </Button>
+                <p id="contact-draft-help" className="text-sm text-muted-foreground">
+                  Opens your email app. Review and send your message there; your text stays in this form.
+                </p>
               </form>
             </motion.div>
 
             {/* Contact info */}
             <motion.div
-              initial={{ opacity: 0, x: 50 }}
+              initial={{ opacity: 0, x: 12 }}
               animate={isInView ? { opacity: 1, x: 0 } : {}}
               transition={{ duration: 0.8, delay: 0.4 }}
               className="space-y-8"
@@ -135,9 +136,11 @@ export function ContactSection() {
                   <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20">
                     <Mail className="h-6 w-6 text-primary" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="font-semibold">Email</h3>
-                    <p className="text-muted-foreground">Use the form to open your email app</p>
+                    <a href={`mailto:${PUBLIC_CONTACT_EMAIL}`} className="text-sm text-muted-foreground break-all underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary">
+                      {PUBLIC_CONTACT_EMAIL}
+                    </a>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

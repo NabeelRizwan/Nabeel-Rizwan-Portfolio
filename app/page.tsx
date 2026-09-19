@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { AnimatePresence, motion } from "framer-motion"
-import { IntroAnimation } from "@/components/intro-animation"
+import { memo, useState, useRef } from "react"
+import { IntroAnimation, type IntroPhase } from "@/components/intro-animation"
 import { Navbar } from "@/components/navbar"
 import { HeroSection } from "@/components/sections/hero"
 import { AboutSection } from "@/components/sections/about"
@@ -14,37 +13,39 @@ import { ProfessionalFocusSection } from "@/components/sections/blog"
 import { ContactSection } from "@/components/sections/contact"
 import { Footer } from "@/components/footer"
 
-export default function Home() {
-  const [showIntro, setShowIntro] = useState(true)
+const StaticNavbar = memo(Navbar)
+const StaticFooter = memo(Footer)
+const IntroHero = memo(HeroSection)
+// Intro phase changes only concern the hero. Keep the rest of the portfolio
+// out of the reveal commit so it cannot interrupt the five-second movement.
+const PortfolioSections = memo(function PortfolioSections() {
+  return <>
+    <AboutSection />
+    <SkillsSection />
+    <ProjectsSection />
+    <VisualizationsSection />
+    <ExperienceSection />
+    <ProfessionalFocusSection />
+    <ContactSection />
+  </>
+})
 
-  const handleIntroComplete = useCallback(() => {
-    setShowIntro(false)
-  }, [])
+export default function Home() {
+  const [introPhase, setIntroPhase] = useState<IntroPhase>("waiting")
+  const contentRef = useRef<HTMLDivElement>(null)
+  const revealed = introPhase !== "playing"
 
   return (
     <>
-      <AnimatePresence>
-        {showIntro && <IntroAnimation onComplete={handleIntroComplete} />}
-      </AnimatePresence>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: showIntro ? 0 : 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Navbar />
+      {introPhase !== "complete" && <IntroAnimation contentRef={contentRef} onPhaseChange={setIntroPhase} />}
+      <div ref={contentRef} id="portfolio-content">
+        <StaticNavbar />
         <main>
-          <HeroSection />
-          <AboutSection />
-          <SkillsSection />
-          <ProjectsSection />
-          <VisualizationsSection />
-          <ExperienceSection />
-          <ProfessionalFocusSection />
-          <ContactSection />
+          <IntroHero revealed={revealed} backgroundActive />
+          <PortfolioSections />
         </main>
-        <Footer />
-      </motion.div>
+        <StaticFooter />
+      </div>
     </>
   )
 }

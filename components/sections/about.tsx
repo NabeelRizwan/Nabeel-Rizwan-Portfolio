@@ -80,7 +80,7 @@ export function AboutSection() {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Profile card */}
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
+              initial={{ opacity: 0, x: -12 }}
               animate={isInView ? { opacity: 1, x: 0 } : {}}
               transition={{ duration: 0.8, delay: 0.2 }}
               className="relative"
@@ -125,7 +125,7 @@ export function AboutSection() {
 
             {/* Stats grid */}
             <motion.div
-              initial={{ opacity: 0, x: 50 }}
+              initial={{ opacity: 0, x: 12 }}
               animate={isInView ? { opacity: 1, x: 0 } : {}}
               transition={{ duration: 0.8, delay: 0.4 }}
               className="grid grid-cols-2 gap-4"

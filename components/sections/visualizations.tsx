@@ -115,8 +115,8 @@ export function VisualizationsSection() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="month" stroke="#666" fontSize={12} />
-                    <YAxis stroke="#666" fontSize={12} />
+                    <XAxis dataKey="month" stroke="#a3a3a3" fontSize={12} />
+                    <YAxis stroke="#a3a3a3" fontSize={12} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "rgba(20, 20, 30, 0.9)",
@@ -144,8 +144,8 @@ export function VisualizationsSection() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis type="number" stroke="#666" fontSize={12} domain={[0, 100]} />
-                    <YAxis type="category" dataKey="name" stroke="#666" fontSize={12} width={80} />
+                    <XAxis type="number" stroke="#a3a3a3" fontSize={12} domain={[0, 100]} />
+                    <YAxis type="category" dataKey="name" stroke="#a3a3a3" fontSize={12} width={96} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "rgba(20, 20, 30, 0.9)",
@@ -179,9 +179,9 @@ export function VisualizationsSection() {
               <h3 className="text-lg font-semibold mb-4">Skill Distribution</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData}>
+                  <RadarChart data={radarData} margin={{ top: 5, right: 48, bottom: 5, left: 48 }}>
                     <PolarGrid stroke="#333" />
-                    <PolarAngleAxis dataKey="subject" stroke="#666" fontSize={12} />
+                    <PolarAngleAxis dataKey="subject" stroke="#a3a3a3" fontSize={12} />
                     <Radar
                       name="Skills"
                       dataKey="A"
@@ -206,8 +206,8 @@ export function VisualizationsSection() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={lineData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="day" stroke="#666" fontSize={12} />
-                    <YAxis stroke="#666" fontSize={12} />
+                    <XAxis dataKey="day" stroke="#a3a3a3" fontSize={12} />
+                    <YAxis stroke="#a3a3a3" fontSize={12} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "rgba(20, 20, 30, 0.9)",

@@ -28,6 +28,8 @@ npm install
 npm run dev
 ```
 
+For the local cinematic intro preview, replay controls, tuning settings, and verification notes, see [INTRO-REVIEW.md](INTRO-REVIEW.md).
+
 ## 📬 Contact
 
 - GitHub: [NabeelRizwan](https://github.com/NabeelRizwan)

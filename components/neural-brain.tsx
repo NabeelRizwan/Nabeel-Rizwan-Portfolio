@@ -1,14 +1,19 @@
 "use client"
 
-import { useRef, useMemo, useState, useEffect } from "react"
-import { Canvas, useFrame } from "@react-three/fiber"
+import { Component, useCallback, useRef, useMemo, useState, useEffect, type ReactNode } from "react"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { Points, PointMaterial } from "@react-three/drei"
 import * as THREE from "three"
+import { clearHeroAnchorSnapshot, publishHeroAnchorSnapshot, type HeroAnchorSnapshot } from "@/components/intro/hero-anchor"
 
-function NeuralNodes() {
+function NeuralNodes({ active }: { active: boolean }) {
   const groupRef = useRef<THREE.Group>(null)
   const pointsRef = useRef<THREE.Points>(null)
+  const originalPointsRef = useRef<THREE.Points>(null)
+  const glowPointsRef = useRef<THREE.Points>(null)
   const linesRef = useRef<THREE.LineSegments>(null)
+  const animationTime = useRef(0)
+  const { gl, size, invalidate } = useThree()
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [isHovering, setIsHovering] = useState(false)
   
@@ -59,7 +64,112 @@ function NeuralNodes() {
     }
   }, [])
 
+  const anchor = useMemo<HeroAnchorSnapshot>(() => ({
+    points: new Float32Array(nodeData.nodeCount * 2),
+    corePoints: new Float32Array(nodeData.nodeCount * 2),
+    pointSizes: new Float32Array(nodeData.nodeCount),
+    coreSizes: new Float32Array(nodeData.nodeCount),
+    glowSizes: new Float32Array(nodeData.nodeCount),
+    pointOpacity: 0.7,
+    coreOpacity: 1,
+    glowOpacity: 0.85,
+    lineOpacity: 0.25,
+    toneMappingExposure: 1,
+    ndcBounds: new Float32Array(4),
+    lines: new Float32Array(nodeData.connections.length / 3 * 2),
+    width: 0,
+    height: 0,
+  }), [nodeData])
+  const projectionPoint = useMemo(() => new THREE.Vector3(), [])
+  const canvasBounds = useRef({ left: 0, top: 0, width: 0, height: 0, dirty: true })
+
   useEffect(() => {
+    const markProjectionDirty = () => {
+      canvasBounds.current.dirty = true
+      invalidate()
+    }
+    markProjectionDirty()
+    window.addEventListener("resize", markProjectionDirty)
+    window.addEventListener("scroll", markProjectionDirty, { passive: true })
+    return () => {
+      window.removeEventListener("resize", markProjectionDirty)
+      window.removeEventListener("scroll", markProjectionDirty)
+    }
+  }, [size.width, size.height, invalidate])
+
+  useEffect(() => () => clearHeroAnchorSnapshot(anchor), [anchor])
+
+  const projectAnchorPositions = (
+    positions: Float32Array,
+    matrix: THREE.Matrix4,
+    target: Float32Array,
+    camera: THREE.Camera,
+    projectedSizes?: Float32Array,
+    material?: THREE.PointsMaterial,
+  ) => {
+    const bounds = canvasBounds.current
+    const perspectiveSizes = material?.sizeAttenuation && camera instanceof THREE.PerspectiveCamera
+    for (let source = 0, destination = 0; source < positions.length; source += 3, destination += 2) {
+      projectionPoint.fromArray(positions, source).applyMatrix4(matrix).applyMatrix4(camera.matrixWorldInverse)
+      if (projectedSizes && material) {
+        projectedSizes[destination / 2] = material.size * (perspectiveSizes ? bounds.height / (2 * Math.max(0.001, -projectionPoint.z)) : 1)
+      }
+      projectionPoint.applyMatrix4(camera.projectionMatrix)
+      target[destination] = (bounds.left + (projectionPoint.x + 1) * 0.5 * bounds.width) / anchor.width * 2 - 1
+      target[destination + 1] = 1 - (bounds.top + (1 - projectionPoint.y) * 0.5 * bounds.height) / anchor.height * 2
+    }
+  }
+
+  const captureAnchor = (camera: THREE.Camera) => {
+    const group = groupRef.current
+    const nodes = pointsRef.current
+    const originals = originalPointsRef.current
+    const glowNodes = glowPointsRef.current
+    const lines = linesRef.current
+    if (!group || !nodes || !originals || !glowNodes || !lines) return
+    const nodeMaterial = nodes.material as THREE.PointsMaterial
+    const originalMaterial = originals.material as THREE.PointsMaterial
+    const glowMaterial = glowNodes.material as THREE.PointsMaterial
+
+    const bounds = canvasBounds.current
+    if (bounds.dirty) {
+      const rect = gl.domElement.getBoundingClientRect()
+      bounds.left = rect.left
+      bounds.top = rect.top
+      bounds.width = rect.width
+      bounds.height = rect.height
+      bounds.dirty = false
+      anchor.width = window.innerWidth
+      anchor.height = window.innerHeight
+      anchor.ndcBounds[0] = bounds.left / anchor.width * 2 - 1
+      anchor.ndcBounds[1] = 1 - (bounds.top + bounds.height) / anchor.height * 2
+      anchor.ndcBounds[2] = (bounds.left + bounds.width) / anchor.width * 2 - 1
+      anchor.ndcBounds[3] = 1 - bounds.top / anchor.height * 2
+    }
+    if (!anchor.width || !anchor.height || !bounds.width || !bounds.height) return
+
+    // useFrame precedes Three's render, so explicitly refresh the real meshes'
+    // world matrices before projecting this frame's positions.
+    group.updateWorldMatrix(true, true)
+    camera.updateMatrixWorld()
+    projectAnchorPositions(nodeData.original, originals.matrixWorld, anchor.points, camera, anchor.pointSizes, originalMaterial)
+    projectAnchorPositions(nodes.geometry.attributes.position.array as Float32Array, nodes.matrixWorld, anchor.corePoints, camera, anchor.coreSizes, nodeMaterial)
+    // The white and purple meshes share positions and transforms. Preserve the
+    // real purple diameter as well as the bright centre at every depth.
+    const glowSizeRatio = glowMaterial.size / Math.max(0.000001, originalMaterial.size)
+    for (let i = 0; i < nodeData.nodeCount; i++) anchor.glowSizes[i] = anchor.pointSizes[i] * glowSizeRatio
+    anchor.pointOpacity = originalMaterial.opacity
+    anchor.coreOpacity = nodeMaterial.opacity
+    anchor.glowOpacity = glowMaterial.opacity
+    anchor.lineOpacity = (lines.material as THREE.LineBasicMaterial).opacity
+    anchor.toneMappingExposure = gl.toneMappingExposure
+    projectAnchorPositions(nodeData.connections, lines.matrixWorld, anchor.lines, camera)
+    publishHeroAnchorSnapshot(anchor)
+  }
+
+  useEffect(() => {
+    if (!active) return
+
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({
         x: (e.clientX / window.innerWidth - 0.5) * 2,
@@ -79,10 +189,17 @@ function NeuralNodes() {
       document.removeEventListener("mouseenter", handleMouseEnter)
       document.removeEventListener("mouseleave", handleMouseLeave)
     }
-  }, [])
+  }, [active])
 
-  useFrame((state) => {
-    const time = state.clock.elapsedTime
+  useFrame((state, delta) => {
+    if (!active) {
+      // Demand renders still refresh the projection on first mount and resize,
+      // while preserving the exact destination shape throughout the handoff.
+      captureAnchor(state.camera)
+      return
+    }
+    animationTime.current += Math.min(delta, 0.1)
+    const time = animationTime.current
     
     // Smooth group rotation following mouse
     if (groupRef.current) {
@@ -171,6 +288,7 @@ function NeuralNodes() {
     if (linesRef.current && linesRef.current.material instanceof THREE.LineBasicMaterial) {
       linesRef.current.material.opacity = 0.2 + Math.sin(time * 0.5) * 0.1
     }
+    captureAnchor(state.camera)
   })
 
   return (
@@ -189,7 +307,7 @@ function NeuralNodes() {
       </lineSegments>
 
       {/* Main neural nodes - outer glow */}
-      <Points ref={pointsRef} positions={nodeData.current.slice()} stride={3} frustumCulled={false}>
+      <Points ref={pointsRef} positions={nodeData.current} stride={3} frustumCulled={false}>
         <PointMaterial
           transparent
           color="#06b6d4"
@@ -200,7 +318,7 @@ function NeuralNodes() {
       </Points>
 
       {/* Inner glow nodes */}
-      <Points positions={nodeData.original} stride={3} frustumCulled={false}>
+      <Points ref={glowPointsRef} positions={nodeData.original} stride={3} frustumCulled={false}>
         <PointMaterial
           transparent
           color="#a855f7"
@@ -212,7 +330,7 @@ function NeuralNodes() {
       </Points>
 
       {/* Core bright nodes */}
-      <Points positions={nodeData.original} stride={3} frustumCulled={false}>
+      <Points ref={originalPointsRef} positions={nodeData.original} stride={3} frustumCulled={false}>
         <PointMaterial
           transparent
           color="#ffffff"
@@ -226,13 +344,16 @@ function NeuralNodes() {
   )
 }
 
-function FloatingParticles() {
+function FloatingParticles({ active }: { active: boolean }) {
   const ref = useRef<THREE.Points>(null)
   const ref2 = useRef<THREE.Points>(null)
   const ref3 = useRef<THREE.Points>(null)
+  const animationTime = useRef(0)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
+    if (!active) return
+
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({
         x: (e.clientX / window.innerWidth - 0.5) * 2,
@@ -241,7 +362,7 @@ function FloatingParticles() {
     }
     window.addEventListener("mousemove", handleMouseMove)
     return () => window.removeEventListener("mousemove", handleMouseMove)
-  }, [])
+  }, [active])
 
   const [particles, particles2, particles3] = useMemo(() => {
     const positions = new Float32Array(500 * 3)
@@ -272,8 +393,10 @@ function FloatingParticles() {
     return [positions, positions2, positions3]
   }, [])
 
-  useFrame((state) => {
-    const time = state.clock.elapsedTime
+  useFrame((_state, delta) => {
+    if (!active) return
+    animationTime.current += Math.min(delta, 0.1)
+    const time = animationTime.current
     
     if (ref.current) {
       ref.current.rotation.y = time * 0.012 + mousePosition.x * 0.1
@@ -332,13 +455,16 @@ function FloatingParticles() {
 }
 
 // Animated pulse rings around the brain
-function PulseRings() {
+function PulseRings({ active }: { active: boolean }) {
   const ringRef1 = useRef<THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>>(null)
   const ringRef2 = useRef<THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>>(null)
   const ringRef3 = useRef<THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>>(null)
+  const animationTime = useRef(0)
 
-  useFrame((state) => {
-    const time = state.clock.elapsedTime
+  useFrame((_state, delta) => {
+    if (!active) return
+    animationTime.current += Math.min(delta, 0.1)
+    const time = animationTime.current
     
     if (ringRef1.current) {
       const scale = 1 + (time % 2) * 0.8
@@ -375,22 +501,75 @@ function PulseRings() {
   )
 }
 
-export function NeuralBrain() {
+class NeuralCanvasBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children
+  }
+}
+
+function ContextLossGuard({ onLost }: { onLost: () => void }) {
+  const gl = useThree((state) => state.gl)
+
+  useEffect(() => {
+    const canvas = gl.domElement
+    const handleContextLost = (event: Event) => {
+      event.preventDefault()
+      onLost()
+    }
+
+    canvas.addEventListener("webglcontextlost", handleContextLost)
+    if (gl.getContext().isContextLost()) onLost()
+
+    return () => canvas.removeEventListener("webglcontextlost", handleContextLost)
+  }, [gl, onLost])
+
+  return null
+}
+
+export function NeuralBrain({ active = true }: { active?: boolean }) {
+  const [canRender, setCanRender] = useState(false)
+  const disableCanvas = useCallback(() => setCanRender(false), [])
+
+  useEffect(() => {
+    // Three requires WebGL2. Keep the decorative background optional.
+    const canvas = document.createElement("canvas")
+    try {
+      const context = canvas.getContext("webgl2", { antialias: true, alpha: true })
+      setCanRender(Boolean(context))
+      context?.getExtension("WEBGL_lose_context")?.loseContext()
+    } catch {
+      setCanRender(false)
+    }
+  }, [])
+
   return (
     <div className="absolute inset-0 -z-10">
-      <Canvas
-        camera={{ position: [0, 0, 8], fov: 50 }}
-        dpr={[1, 2]}
-        gl={{ antialias: true, alpha: true }}
-      >
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} intensity={0.4} color="#3b82f6" />
-        <pointLight position={[-10, -10, -10]} intensity={0.3} color="#a855f7" />
-        <pointLight position={[0, 10, 5]} intensity={0.2} color="#06b6d4" />
-        <NeuralNodes />
-        <FloatingParticles />
-        <PulseRings />
-      </Canvas>
+      {canRender && (
+        <NeuralCanvasBoundary>
+          <Canvas
+            camera={{ position: [0, 0, 8], fov: 50 }}
+            dpr={[1, 2]}
+            frameloop={active ? "always" : "demand"}
+            fallback={null}
+            gl={{ antialias: true, alpha: true }}
+          >
+            <ContextLossGuard onLost={disableCanvas} />
+            <ambientLight intensity={0.5} />
+            <pointLight position={[10, 10, 10]} intensity={0.4} color="#3b82f6" />
+            <pointLight position={[-10, -10, -10]} intensity={0.3} color="#a855f7" />
+            <pointLight position={[0, 10, 5]} intensity={0.2} color="#06b6d4" />
+            <NeuralNodes active={active} />
+            <FloatingParticles active={active} />
+            <PulseRings active={active} />
+          </Canvas>
+        </NeuralCanvasBoundary>
+      )}
     </div>
   )
 }

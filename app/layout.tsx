@@ -48,6 +48,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${spaceGrotesk.variable} ${geistMono.variable} font-sans antialiased`}>
+        <noscript>
+          <style>{`#portfolio-content [style] { opacity: 1 !important; transform: none !important; } .space-intro { display: none !important; }`}</style>
+        </noscript>
         {children}
         <Analytics />
       </body>

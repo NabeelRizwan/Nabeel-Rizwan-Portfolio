@@ -12,7 +12,7 @@
   --popover: oklch(0.10 0.01 260);
   --popover-foreground: oklch(0.95 0 0);
   --primary: oklch(0.70 0.18 220);
-  --primary-foreground: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.10 0.01 260);
   --secondary: oklch(0.15 0.01 260);
   --secondary-foreground: oklch(0.90 0 0);
   --muted: oklch(0.18 0.01 260);
@@ -54,7 +54,7 @@
   --popover: oklch(0.10 0.01 260);
   --popover-foreground: oklch(0.95 0 0);
   --primary: oklch(0.70 0.18 220);
-  --primary-foreground: oklch(0.98 0 0);
+  --primary-foreground: oklch(0.10 0.01 260);
   --secondary: oklch(0.15 0.01 260);
   --secondary-foreground: oklch(0.90 0 0);
   --muted: oklch(0.18 0.01 260);
@@ -188,4 +188,54 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
+}
+
+/* No intermediate loading screen: reveal only a successfully rendered scene. */
+.space-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  overflow: hidden;
+  visibility: hidden;
+  background: var(--background);
+  isolation: isolate;
+  touch-action: none;
+}
+.space-intro__canvas { display: block; width: 100%; height: 100%; }
+.space-intro__skip {
+  position: absolute;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  right: max(24px, env(safe-area-inset-right));
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid rgb(170 195 225 / 22%);
+  border-radius: 999px;
+  background: rgb(4 8 17 / 50%);
+  color: rgb(219 229 242 / 85%);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.space-intro__skip span { margin-left: 12px; }
+.space-intro__skip:hover { background: rgb(25 37 58 / 80%); }
+.space-intro__skip:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .space-intro { display: none; }
+}
+
+/* Intro entrance values come from the same RAF as the 3D scene. Defaults keep
+   the original homepage fully visible without JS, on skip, or on failure. */
+.intro-hero-heading {
+  opacity: var(--intro-heading, 1);
+  transform: translateY(calc((1 - var(--intro-heading, 1)) * 30px));
+}
+.intro-hero-details { opacity: var(--intro-details, 1); }
+.intro-hero-actions {
+  opacity: var(--intro-actions, 1);
+  transform: translateY(calc((1 - var(--intro-actions, 1)) * 20px));
+}
+.intro-hero-scroll { opacity: var(--intro-scroll, 1); }
+.intro-navigation {
+  transform: translateY(calc((1 - var(--intro-navigation, 1)) * -100px));
+  transition-property: padding, background-color, border-color, box-shadow;
 }

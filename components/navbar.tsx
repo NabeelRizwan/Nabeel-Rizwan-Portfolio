@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,29 +17,47 @@ const navItems = [
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const menuToggleRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50)
     }
+    handleScroll()
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      event.preventDefault()
+      setIsMobileMenuOpen(false)
+      menuToggleRef.current?.focus({ preventScroll: true })
+    }
+    const desktop = window.matchMedia("(min-width: 1024px)")
+    const closeOnDesktop = () => { if (desktop.matches) setIsMobileMenuOpen(false) }
+    window.addEventListener("keydown", onEscape)
+    desktop.addEventListener("change", closeOnDesktop)
+    return () => {
+      window.removeEventListener("keydown", onEscape)
+      desktop.removeEventListener("change", closeOnDesktop)
+    }
+  }, [isMobileMenuOpen])
 
   const scrollToSection = (href: string) => {
     const element = document.querySelector(href)
     if (element) {
       element.scrollIntoView({ behavior: "smooth" })
     }
+    if (isMobileMenuOpen) menuToggleRef.current?.focus({ preventScroll: true })
     setIsMobileMenuOpen(false)
   }
 
   return (
-    <motion.nav
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
+    <nav
+      className={`intro-navigation fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
         isScrolled ? "glass py-3" : "py-6"
       }`}
     >
@@ -56,7 +74,7 @@ export function Navbar() {
           </motion.a>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => (
               <button
                 key={item.name}
@@ -76,21 +94,25 @@ export function Navbar() {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 text-foreground"
+            ref={menuToggleRef}
+            className="lg:hidden p-2.5 rounded-lg text-foreground focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-4"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label="Toggle menu"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-navigation"
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
         {/* Mobile Menu */}
+        <div id="mobile-navigation" hidden={!isMobileMenuOpen} className="lg:hidden">
         {isMobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="md:hidden mt-4 pb-4 glass-strong rounded-xl"
+            className="mt-4 pb-4 glass-strong rounded-xl max-h-[calc(100dvh-7rem)] overflow-y-auto"
           >
             <div className="flex flex-col gap-2 p-4">
               {navItems.map((item) => (
@@ -111,7 +133,8 @@ export function Navbar() {
             </div>
           </motion.div>
         )}
+        </div>
       </div>
-    </motion.nav>
+    </nav>
   )
 }

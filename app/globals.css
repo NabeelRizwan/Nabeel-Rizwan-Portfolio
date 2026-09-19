@@ -219,8 +219,35 @@
 .space-intro__skip span { margin-left: 12px; }
 .space-intro__skip:hover { background: rgb(25 37 58 / 80%); }
 .space-intro__skip:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+.intro-replay {
+  position: fixed;
+  right: max(20px, calc(env(safe-area-inset-right) + 12px));
+  bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid rgb(103 217 239 / 30%);
+  border-radius: 999px;
+  background: rgb(5 14 27 / 90%);
+  color: #dff7ff;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(12px);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, background-color 180ms ease, border-color 180ms ease;
+}
+.intro-replay[data-visible="true"] { opacity: 1; pointer-events: auto; }
+.intro-replay[aria-disabled="true"] { pointer-events: none; }
+.intro-replay:hover { background: rgb(15 33 49 / 96%); border-color: rgb(103 217 239 / 60%); }
+.intro-replay:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
 @media (prefers-reduced-motion: reduce) {
-  .space-intro { display: none; }
+  .space-intro, .intro-replay { display: none; }
 }
 
 /* Intro entrance values come from the same RAF as the 3D scene. Defaults keep

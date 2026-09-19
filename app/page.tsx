@@ -1,6 +1,7 @@
 "use client"
 
 import { memo, useState, useRef } from "react"
+import { RotateCcw } from "lucide-react"
 import { IntroAnimation, type IntroPhase } from "@/components/intro-animation"
 import { Navbar } from "@/components/navbar"
 import { HeroSection } from "@/components/sections/hero"
@@ -32,12 +33,23 @@ const PortfolioSections = memo(function PortfolioSections() {
 
 export default function Home() {
   const [introPhase, setIntroPhase] = useState<IntroPhase>("waiting")
+  const [introRun, setIntroRun] = useState(0)
   const contentRef = useRef<HTMLDivElement>(null)
   const revealed = introPhase !== "playing"
+  const replayLoading = introRun > 0 && introPhase === "waiting"
+  const replayVisible = introPhase === "complete" || replayLoading
+
+  const replayIntro = () => {
+    if (introPhase !== "complete") return
+    setIntroRun((run) => run + 1)
+    setIntroPhase("waiting")
+  }
 
   return (
     <>
-      {introPhase !== "complete" && <IntroAnimation contentRef={contentRef} onPhaseChange={setIntroPhase} />}
+      {introPhase !== "complete" && (
+        <IntroAnimation key={introRun} contentRef={contentRef} onPhaseChange={setIntroPhase} replay={introRun > 0} />
+      )}
       <div ref={contentRef} id="portfolio-content">
         <StaticNavbar />
         <main>
@@ -45,6 +57,19 @@ export default function Home() {
           <PortfolioSections />
         </main>
         <StaticFooter />
+        <button
+          type="button"
+          className="intro-replay"
+          data-visible={replayVisible}
+          aria-hidden={!replayVisible}
+          aria-disabled={introPhase !== "complete"}
+          aria-busy={replayLoading}
+          tabIndex={introPhase === "complete" ? 0 : -1}
+          onClick={replayIntro}
+        >
+          <RotateCcw size={16} aria-hidden="true" />
+          <span>{replayLoading ? "Loading intro…" : "Replay intro"}</span>
+        </button>
       </div>
     </>
   )

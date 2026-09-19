@@ -23,7 +23,7 @@ const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 function harness(options = {}) {
   let document, setup, cleanup, now = 0, nextId = 1, imports = 0, signal;
-  const timers = new Map(), frames = new Map(), phases = [], states = [], nodes = {};
+  const timers = new Map(), frames = new Map(), phases = [], states = [], nodes = {}, scrolls = [];
   const store = options.store || new Map();
   class Target {
     listeners = new Map();
@@ -64,7 +64,8 @@ function harness(options = {}) {
   const motion = Object.assign(new Target(), { matches: !!options.reduced });
   const schedule = (callback, delay) => { const id = nextId++; timers.set(id, { callback, at: now + delay }); return id; };
   const window = Object.assign(new Target(), { innerWidth: options.mobile ? 390 : 1280,
-    innerHeight: 800, scrollY: options.scrollY || 0, matchMedia: () => motion, setTimeout: schedule });
+    innerHeight: 800, scrollY: options.scrollY || 0, matchMedia: () => motion, setTimeout: schedule,
+    scrollTo(position) { scrolls.push(position); window.scrollY = position.top; window.emit('scroll'); } });
   const scene = { disposals: 0, renders: [], sizes: [],
     dispose() { this.disposals++; },
     render(time) { if (options.renderError) throw Error('render failed'); this.renders.push(time); },
@@ -119,12 +120,13 @@ function harness(options = {}) {
     }
     throw Error(`Unexpected import: ${name}`);
   });
-  component.IntroAnimation({ contentRef: { current: content }, onPhaseChange: (phase) => phases.push(phase) });
+  component.IntroAnimation({ contentRef: { current: content }, onPhaseChange: (phase) => phases.push(phase),
+    replay: !!options.replay });
   const mount = () => { cleanup = setup(); };
   const unmount = () => { cleanup?.(); cleanup = undefined; };
   mount();
   return { options, window, document, motion, content, previousFocus, scene, states, phases, settings,
-    nodes, timers, frames, store, mount, unmount, resolveLoad, rejectLoad,
+    nodes, timers, frames, store, scrolls, mount, unmount, resolveLoad, rejectLoad,
     get imports() { return imports; }, get signal() { return signal; },
     frame(seconds, rafSeconds = seconds) { now = seconds * 1000; const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((callback) => callback(rafSeconds * 1000)); },
     deadline(ms) { now += ms; for (const [id, timer] of [...timers]) if (timer.at <= now) { timers.delete(id); timer.callback(); } },
@@ -287,4 +289,56 @@ test('scene, overlay and all hero entrances follow the same absolute elapsed tim
   assert.equal(h.content.dataset.introDuration, '5.000');
   assert.deepEqual(h.phases, ['playing', 'revealing', 'complete']);
   released(h, true);
+});
+
+test('manual replay works after completion, Skip and Escape without re-enabling automatic playback', async () => {
+  const first = harness(); await flush(); first.frame(INTRO_SETTINGS.duration); released(first, true);
+  for (const method of ['complete', 'Skip', 'Escape', 'complete', 'Skip']) {
+    const h = harness({ replay: true, store: first.store, focused: true }); await flush();
+    assert.deepEqual(h.phases, ['playing']);
+    assert.equal(h.seen(), true, 'Replay must keep the session flag throughout playback');
+    const refresh = harness({ store: first.store, navigation: 'reload' }); await flush();
+    assert.equal(refresh.imports, 0); released(refresh, true);
+    if (method === 'complete') h.frame(INTRO_SETTINGS.duration);
+    else if (method === 'Skip') h.skip();
+    else h.window.emit('keydown', { key: 'Escape' });
+    assert.equal(h.document.activeElement, h.previousFocus);
+    assert.equal(h.scene.disposals, 1); released(h, true);
+  }
+});
+
+test('manual replay from a deep link or restored scroll moves to the hero only once a scene is ready', async () => {
+  const h = harness({ replay: true, pending: true, hash: '#contact', scrollY: 1800,
+    navigation: 'back_forward' }); await flush();
+  assert.equal(h.window.scrollY, 1800);
+  assert.equal(h.scrolls.length, 0);
+  h.resolveLoad(h.scene); await flush();
+  assert.equal(h.window.scrollY, 0);
+  assert.equal(h.scrolls.length, 1);
+  assert.equal(h.scrolls[0].behavior, 'instant');
+  assert.equal(h.nodes['space-intro'].style.visibility, 'visible');
+  assert.deepEqual(h.phases, ['playing'], 'The controlled scroll must not cancel playback');
+  assert.equal(h.seen(), true, 'A manually started first view also suppresses refresh autoplay');
+  h.frame(INTRO_SETTINGS.duration); released(h, true);
+});
+
+for (const options of [{ reduced: true }, { hidden: true }]) {
+  test(`manual replay retains accessibility and visibility guards: ${JSON.stringify(options)}`, async () => {
+    const h = harness({ ...options, replay: true, seen: true }); await flush();
+    assert.equal(h.imports, 0); assert.equal(h.scrolls.length, 0); released(h, true);
+  });
+}
+
+test('failed replay leaves the current section usable and can be retried', async () => {
+  const failed = harness({ replay: true, seen: true, scrollY: 1800, loadError: true }); await flush();
+  assert.equal(failed.window.scrollY, 1800); assert.equal(failed.scrolls.length, 0);
+  released(failed, true);
+  const retry = harness({ replay: true, store: failed.store, scrollY: 1800 }); await flush();
+  assert.deepEqual(retry.phases, ['playing']); retry.skip(); released(retry, true);
+});
+
+test('manual replay still works when session storage is denied', async () => {
+  const h = harness({ replay: true, deniedStorage: true }); await flush();
+  assert.deepEqual(h.phases, ['playing']); h.skip(); released(h);
+  assert.equal(h.scene.disposals, 1);
 });

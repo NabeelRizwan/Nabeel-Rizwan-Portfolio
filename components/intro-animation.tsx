@@ -13,9 +13,10 @@ const revealParts = ["heading", "details", "actions", "scroll", "navigation"] as
 type Props = {
   contentRef: RefObject<HTMLDivElement | null>
   onPhaseChange: (phase: IntroPhase) => void
+  replay?: boolean
 }
 
-export function IntroAnimation({ contentRef, onPhaseChange }: Props) {
+export function IntroAnimation({ contentRef, onPhaseChange, replay = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
   const skipRef = useRef<HTMLButtonElement>(null)
@@ -30,8 +31,8 @@ export function IntroAnimation({ contentRef, onPhaseChange }: Props) {
 
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)")
     const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined
-    if (motion.matches || hasSeenIntro() || location.hash || window.scrollY > 8 ||
-      navigation?.type === "back_forward" || document.hidden) {
+    if (motion.matches || document.hidden || (!replay && (hasSeenIntro() || location.hash ||
+      window.scrollY > 8 || navigation?.type === "back_forward"))) {
       onPhaseChange("complete")
       return
     }
@@ -192,6 +193,12 @@ export function IntroAnimation({ contentRef, onPhaseChange }: Props) {
           onPhaseChange("playing")
         })
         overlay.style.visibility = "visible"
+        if (replay) {
+          // Move under the rendered overlay so a replay from any section lands
+          // on the hero. Never clear the session flag to request another run.
+          window.scrollTo({ top: 0, left: 0, behavior: "instant" })
+          rememberIntro()
+        }
         if (previousFocus && content.contains(previousFocus)) skipRef.current?.focus({ preventScroll: true })
         startedAt = previousTime = performance.now()
         // The same five-second deadline releases the page even if RAF stalls.
@@ -214,7 +221,7 @@ export function IntroAnimation({ contentRef, onPhaseChange }: Props) {
       motion.removeEventListener("change", onMotion)
       canvas.removeEventListener("webglcontextlost", onContextLost)
     }
-  }, [contentRef, onPhaseChange])
+  }, [contentRef, onPhaseChange, replay])
 
   return (
     <div ref={overlayRef} className="space-intro" data-active={active} aria-hidden={!active}>
